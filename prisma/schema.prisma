@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  student
+  host
+  admin
+}
+
+enum NoteStatus {
+  pending
+  approved
+  rejected
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         Role     @default(student)
+  departmentId String?
+  year         Int?     // 1-4
+  section      String?  // a, b, c, d
+  createdAt    DateTime @default(now())
+
+  department   Department? @relation(fields: [departmentId], references: [id])
+  notesContributed Note[]   @relation("Contributor")
+  notesApproved    Note[]   @relation("Approver")
+  ratings          Rating[]
+  comments         Comment[]
+  downloads        Download[]
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  slug        String   @unique // bca, bba, btech, ba
+  name        String   // BCA, BBA
+  fullName    String
+  description String?
+  notes       Note[]
+  users       User[]
+}
+
+model Note {
+  id              String     @id @default(cuid())
+  title           String
+  description     String
+  fileUrl         String?    // path or URL to file
+  departmentId    String
+  year            Int        // 1-4
+  section         String     // a, b, c, d
+  subject         String     // e.g. Data Structures
+  subjectSlug     String     // e.g. data-structures (for URL)
+  contributorId   String
+  status          NoteStatus @default(pending)
+  approvedById    String?
+  rejectionReason String?
+  downloadCount   Int        @default(0)
+  averageRating   Float?
+  reviewCount     Int        @default(0)
+  createdAt       DateTime   @default(now())
+
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  contributor  User       @relation("Contributor", fields: [contributorId], references: [id], onDelete: Cascade)
+  approver     User?      @relation("Approver", fields: [approvedById], references: [id])
+  ratings      Rating[]
+  comments     Comment[]
+  downloads    Download[]
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  noteId    String
+  userId    String
+  value     Int      // 1-5
+  createdAt DateTime @default(now())
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, userId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  noteId    String
+  userId    String
+  content   String
+  likes     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Download {
+  id        String   @id @default(cuid())
+  noteId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
