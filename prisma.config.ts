@@ -1,10 +1,12 @@
 import path from "node:path"
-import { defineConfig } from "prisma/config"
+import "dotenv/config"
+import { defineConfig, env } from "prisma/config"
 
 export default defineConfig({
   earlyAccess: true,
   schema: path.join(__dirname, "prisma", "schema.prisma"),
   datasource: {
-    url: process.env.DATABASE_URL ?? "file:./dev.db",
+    // We use the direct connection for migrations and pushes
+    url: env("DIRECT_URL"),
   },
 })

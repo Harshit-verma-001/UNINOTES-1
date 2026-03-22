@@ -1,11 +1,14 @@
-import path from "node:path"
 import { PrismaClient } from "@prisma/client"
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3"
+import { PrismaPg } from "@prisma/adapter-pg"
+import { Pool } from "pg"
 
-const url = process.env.DATABASE_URL ?? "file:./dev.db"
-const dbPath = url.replace(/^file:/, "")
-const absolutePath = path.isAbsolute(dbPath) ? dbPath : path.join(process.cwd(), dbPath)
-const adapter = new PrismaBetterSqlite3({ url: `file:${absolutePath}` })
+const pool = new Pool({
+  connectionString: process.env.DIRECT_URL!,
+  ssl: process.env.NODE_ENV === "production" ? undefined : {
+    rejectUnauthorized: false,
+  }
+})
+const adapter = new PrismaPg(pool)
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 

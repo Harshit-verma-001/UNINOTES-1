@@ -25,6 +25,7 @@ export default function SubmitNotesPage() {
   const [description, setDescription] = useState("")
   const [fileUrl, setFileUrl] = useState("")
   const [fileName, setFileName] = useState<string | null>(null)
+  const [file, setFile] = useState<File | null>(null)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [error, setError] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -42,7 +43,13 @@ export default function SubmitNotesPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) setFileName(file.name)
+    if (file) {
+      setFile(file)
+      setFileName(file.name)
+    } else {
+      setFile(null)
+      setFileName(null)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,14 +57,35 @@ export default function SubmitNotesPage() {
     setError("")
     setSubmitting(true)
     try {
+      let uploadedUrl: string | undefined
+
+      if (file) {
+        const formData = new FormData()
+        formData.append("file", file)
+
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        })
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error((data as { error?: string }).error || "File upload failed")
+        }
+
+        const data = (await res.json()) as { url: string }
+        uploadedUrl = data.url
+      }
+
       await api.notes.create({
         title,
         description,
-        department: department || "bca",
-        year: year ? parseInt(year, 10) : 1,
-        section: section || "a",
-        subject: subject || "General",
-        fileUrl: fileUrl || undefined,
+        department: department,
+        year: parseInt(year, 10),
+        section: section,
+        subject: subject,
+        fileUrl: uploadedUrl ?? (fileUrl || undefined),
       })
       setIsSubmitted(true)
       setRecentSubmissions((prev) => [
@@ -71,6 +99,7 @@ export default function SubmitNotesPage() {
       setSubject("")
       setDescription("")
       setFileUrl("")
+      setFile(null)
       setFileName(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submission failed")
@@ -216,7 +245,7 @@ export default function SubmitNotesPage() {
                           {fileName || "Click to upload or drag and drop"}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          PDF, DOC, DOCX, PPT, PPTX (max 10MB). File is stored locally for now.
+                    PDF, DOC, DOCX, PPT, PPTX (max 10MB).
                         </p>
                       </div>
                     </div>

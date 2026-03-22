@@ -1,26 +1,37 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { requireRole } from "@/lib/auth"
 
 export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  _request: Request,
+  { params }: { params: { id: string } }
 ) {
-  const user = await requireRole(["host", "admin"])
+  try {
+    const user = await requireRole(["host", "admin"])
+    const noteId = params.id
 
-  const { id } = await params
-  const note = await prisma.note.findUnique({ where: { id } })
-  if (!note) {
-    return NextResponse.json({ error: "Note not found" }, { status: 404 })
+    const note = await prisma.note.findUnique({ where: { id: noteId } })
+    if (!note) {
+      return NextResponse.json({ error: "Note not found" }, { status: 404 })
+    }
+
+    // A host can only approve notes in their own department
+    if (user.role === "host" && user.departmentId !== note.departmentId) {
+      return NextResponse.json({ error: "You can only approve notes in your department." }, { status: 403 })
+    }
+
+    const updatedNote = await prisma.note.update({
+      where: { id: noteId },
+      data: {
+        status: "approved",
+        approvedById: user.id,
+      },
+    })
+
+    return NextResponse.json(updatedNote)
+  } catch (err) {
+    if (err instanceof Response) return err // Re-throw auth errors
+    console.error(err)
+    return NextResponse.json({ error: "Failed to approve note" }, { status: 500 })
   }
-  if (note.status !== "pending") {
-    return NextResponse.json({ error: "Note is not pending" }, { status: 400 })
-  }
-
-  await prisma.note.update({
-    where: { id },
-    data: { status: "approved", approvedById: user.id, rejectionReason: null },
-  })
-
-  return NextResponse.json({ ok: true })
 }
